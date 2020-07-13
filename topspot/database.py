@@ -58,3 +58,32 @@ def update_track_history(**kwargs):
             updated_df.to_json(track_history_path)
             print(f"track_history_df updated at {datetime.now()}")
             return
+
+def merge_track_histories():
+    """
+    Add everything in temp_history_df() that's not in track_history_df()
+    to track_history_df(), save that merged dataframe at 
+    constants.user_vars.['track_history_df']. If, for some reason
+    finaldf is shorter than histdf or empty, don't save the new file.
+    I don't want to overwrite the WSL local master history_df 
+    accidentally
+
+    Return nothing
+    """
+    histdf = track_history_df()
+    tempdf = temp_history_df()
+
+    boolindex = ~tempdf.played_at.isin(histdf.played_at)
+    to_add = tempdf[boolindex]
+    finaldf = pd.concat([histdf, to_add], ignore_index=True)
+
+    if len(finaldf) < len(histdf) or finaldf.empty == True:
+        raise("merge_track_histories is losing data! Aborting")
+
+    elif len(finaldf) <= len(histdf):
+        print("No new tracks to add")
+
+    else:
+        print(f"Adding {len(finaldf) - len(histdf)} new tracks to history")
+        writepath = constants.user_vars['track_history_path']
+        finaldf.to_json(writepath)

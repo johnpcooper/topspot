@@ -1,4 +1,4 @@
-from spotify_jpc import playback, utilities
+from topspot import playback, utilities
 
 def run():
 

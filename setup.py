@@ -11,7 +11,7 @@ def read(fname):
 
 setup(
     name = "topspot",
-    version = "1.0.0",
+    version = "2.0.0",
     author = "John P. Cooper",
     author_email = "jpcoope@utexas.edu",
     description = ("A package of adapters to spotipy to create ready for command line shortcuts"),
