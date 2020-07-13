@@ -104,7 +104,7 @@ def merge_track_histories():
     if len(finaldf) < len(histdf) or finaldf.empty == True:
         raise("merge_track_histories is losing data! Aborting")
 
-    elif len(finaldf) <= len(histdf):
+    elif len(finaldf) == len(histdf):
         print("No new tracks to add")
 
     else:
