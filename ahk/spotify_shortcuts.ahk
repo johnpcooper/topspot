@@ -33,6 +33,17 @@ return
 
 return
 
+; Ask for a playlist name to add the current track to
+; If the playlist exists, add the track. If not, ask
+; if the user wants to getlist (print list of playlist
+; names) or makenew (create new playlist with query and
+; add current track to it)
+^!4::
+
+  env = C:\.topspot\Scripts\activate
+  pycommand := "from topspot.playlist import add_current_track_to_playlist; from time import sleep; add_current_track_to_playlist(ask_name=True); sleep(5)"
+  run, %comspec% /c %env% & python -c "%pycommand%"
+
 ; Seeking forward and reverse
 !+]::
 
