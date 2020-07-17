@@ -252,13 +252,13 @@ def new_playlist(**kwargs):
     # will find it and add it to the database
     if name in db.name.values:
         print(f'Playlist already exists with name: {name}')
-        return False
+        return None
     else:
         # user_playlist_create() returns the playlist dict 
         # object
         new_pl = sp.user_playlist_create(username, name, public)
         update_database()
-        return True
+        return new_pl
 
 def n_tracks(playlist_id, **kwargs):
     sp = kwargs.get('sp', utilities.get_user_sp())
@@ -349,7 +349,19 @@ def add_current_track_to_playlist(ask_name=False, **kwargs):
     if ask_name:
         name = input("Enter name of target playlist> ")
         while name not in db.name.values:
-            name = input(f"No playlist with name {name}, try again> ")
+            db = database() # get a fresh copy of the db
+            # object in case it got updated in new_playlist()
+            # name = input(f"No playlist with name {name}, try again> ")
+            nextstep = input(f"getlist or makenew?> ")
+            if nextstep == 'getlist':
+                for plname in db.name.values:
+                    print(plname)
+                name = input("Enter name of target playlist> ")
+            elif nextstep == 'makenew':
+                new_playlist(name=name)
+                add_track_to_playlist(track, name)
+
+
         add_track_to_playlist(track, name)
 
     # Otherwise, add track to the singles playlists for 
