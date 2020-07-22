@@ -63,7 +63,7 @@ def singles_df(**kwargs):
     by spotify api) singles released by the artist_name or artist_id
     passed to singles_df. 
 
-    This function uses artits.drop_clean_and_dup_tracks() to remove
+    This function uses artist.drop_clean_and_dup_tracks() to remove
     duplicated and clean versions of singles albums
 
     Should be tested by passing kwarg artist_name = nonsense ('asdlfkj'), 
@@ -77,7 +77,7 @@ def singles_df(**kwargs):
     
     # Get objects from topspot
     pldf = playlist.dataframe()
-    pldb = playlist.database()
+    pldb = playlist.DataBase().df
     sp = kwargs.get('sp', utilities.get_user_sp())
     # Parse keyword args
     artist_name = kwargs.get('artist_name', None)
@@ -103,7 +103,11 @@ def singles_df(**kwargs):
     else:
         artist_id = kwargs.get('artist_id', pldf.track_artist_id[0])
         artist_slice = pldf.set_index('track_artist_id', drop=False).loc[artist_id, :]
-        artist_name = artist_slice.track_artist_name[0]
+        n_tracks_for_artist = pldf.groupby('track_artist_id')['track_artist_id'].count()[artist_id]
+        if n_tracks_for_artist == 1:
+            artist_name = artist_slice.track_artist_name
+        else:
+            artist_name = artist_slice.track_artist_name[0]
     try:
         albums = sp.artist_albums(artist_id, album_type='single')['items']
     except:
@@ -134,6 +138,83 @@ def singles_df(**kwargs):
         df.loc[i, 'album_uri'] = album_uri
         
     print(f'Compiled singles DataFrame for {artist_name}')
+    singles_df = drop_clean_and_dup_tracks(df)
+
+    return singles_df
+
+def albums_df(**kwargs):
+    """
+    Return a dataframe with a row for each of the last 20 (limited
+    by spotify api) albums released by the artist_name or artist_id
+    passed to singles_df. 
+
+    This function uses artist.drop_clean_and_dup_tracks() to remove
+    duplicated and clean versions of singles albums
+    """
+    
+    # Get objects from topspot
+    pldf = playlist.dataframe()
+    pldb = playlist.DataBase().df
+    sp = kwargs.get('sp', utilities.get_user_sp())
+    # Parse keyword args
+    artist_name = kwargs.get('artist_name', None)
+    artist_id = kwargs.get('artist_id', None)
+
+    if artist_name != None:
+
+        if artist_name not in pldf.track_artist_name.values:
+            print("Must pass an artist name that exists in playlist.dataframe().track_artist_name")
+            return None
+        else:
+            pass
+
+        artist_slice = pldf.set_index('track_artist_name', drop=False).loc[artist_name, :]
+        try:
+            # Works if there are multiple appearances of this artist 
+            # across user playlists
+            artist_id = artist_slice.track_artist_id.unique()[0]
+        except:
+            # Works if there's only one appearance of this artst
+            # across user playlists
+            artist_id = artist_slice.track_artist_id
+    else:
+        artist_id = kwargs.get('artist_id', pldf.track_artist_id[0])
+        artist_slice = pldf.set_index('track_artist_id', drop=False).loc[artist_id, :]
+        n_tracks_for_artist = pldf.groupby('track_artist_id')['track_artist_id'].count()[artist_id]
+        if n_tracks_for_artist == 1:
+            artist_name = artist_slice.track_artist_name
+        else:
+            artist_name = artist_slice.track_artist_name[0]
+    try:
+        albums = sp.artist_albums(artist_id, album_type='album')['items']
+    except:
+        print(f"No albums found for artist {artist_name}")
+        return None
+     # We need to scan each album for the explicit version
+    # Since album objects are not tagged with the 'explicit'
+    # key, we have to look through each track in each album
+    # to find whether the album was explicit
+    df = pd.DataFrame()
+    for i, album in enumerate(albums):
+        album_title = album['name']
+        album_id = album['id']
+        album_uri = album['uri']
+        albums_tracks = sp.album_tracks(album_id, limit=50)['items']
+        explicit_tracks = False
+        release_date = album['release_date']
+        for track in albums_tracks:
+            if track['explicit'] == True:
+                explicit_tracks = True
+
+        df.loc[i, 'artist_name'] = artist_name
+        df.loc[i, 'artist_id'] = artist_id
+        df.loc[i, 'album_title'] = album_title
+        df.loc[i, 'album_id'] = album_id
+        df.loc[i, 'explicit_tracks'] = explicit_tracks
+        df.loc[i, 'release_date'] = release_date
+        df.loc[i, 'album_uri'] = album_uri
+        
+    print(f'Compiled albums DataFrame for {artist_name}')
     singles_df = drop_clean_and_dup_tracks(df)
 
     return singles_df
