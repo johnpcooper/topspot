@@ -1,65 +1,123 @@
-import pandas as pd
-from topspot import playback, utilities, constants, artist, track
-from importlib import reload
+import os
 from datetime import datetime, timedelta
 import calendar
 from textwrap import dedent
+import re
 
-def database(**kwargs):
-    """
-    Return the dataframe containing a database
-    of playlists in the user's library
+import pandas as pd
 
-    If no file found at path, return None
-    """
-    path = kwargs.get('path', constants.user_vars['playlist_db_path'])
-    try:
-        db = pd.read_csv(path)
-    except FileNotFoundError:
-        db = None
-        print(f'No file at path: {path}')
-        if kwargs.get('path') == None:
-            print(dedent("""\
-                   Either create a refreshed database using playlist.update_database()
-                   or update the value of constants.user_vars['playlist_db_path'] to refer to
-                   a file that exists
-                   """))
+from topspot import playback, utilities, constants, artist, track
+
+class DataBase(object):
+
+    def __init__(self):
+
+        self.df = self.get_database_df()
+        self.singles_names = self.get_singles_names(self.df)
+        self.tracks_df = self.get_database_tracks_df()
+
+    def get_database_df(self, **kwargs):
+        """
+        Return the dataframe containing a database
+        of playlists in the user's library
+
+        If no file found at path, create a refreshed 
+        database df and write it
+        """
+        path = kwargs.get('path', constants.user_vars['playlist_db_path'])
+        if os.path.exists(path):
+            db = pd.read_json(path)
         else:
-            print(dedent("""\
-                   Pass an existing path keyword argument
-                   """))
+            print("No playlist database")
+            db = self.make_database_df()
+            db.to_json(path)
+            print(f"Refreshed database created at: {path}")
         
-    return db
+        return db
 
-def dataframe(**kwargs):
-    """
-    Return the dataframe of user playlists where each row 
-    is a track, include release date, first artist name, etc.
+    def make_database_df(self):
+    
+        sp = utilities.get_user_sp()
+        username = constants.user_vars['username']
+        playlists = sp.user_playlists(username, limit=50)
+        playlist_dfs = []
 
-    If no file found at path, return None
-    """
-    path = kwargs.get('path', constants.user_vars['playlist_df_path'])
-    try:
-        df = pd.read_csv(path)
-    except FileNotFoundError:
-        df = None
-        print(f'No file at path: {path}')
-        if kwargs.get('path') == None:
-            print(dedent("""\
-                   Create a refreshed dataframe using playlist.make_playlists_df()
-                   which will save the outputt at constants.user_vars['playlist_df_path']
-                   """))
+        keys = ['name',
+                'uri',
+                'id']
+        
+        for i, playlist_dict in enumerate(playlists['items']):
+            columns_dict = {}
+            for key in keys:
+                columns_dict[key] = playlist_dict[key]                    
+            playlist_df = pd.DataFrame(columns_dict, index=[i])
+            playlist_dfs.append(playlist_df)
+
+        playlists_df = pd.concat(playlist_dfs)
+        
+        return playlists_df
+
+    def update_database(self):
+        """
+        Refresh the playlist database .csv. 
+        Check topspot.constants.user_vars['playlist_db_path'] and make sure
+        there is an existing .csv at that path
+        """
+        path = constants.user_vars['playlist_db_path']
+        new_db = make_playlists_db()
+        old_db = self.df
+        # Check if there's a .json at the path. If not,
+        # just create an empty one with the same cols
+        # as the new database
+        try:   
+            # Get information for playlists in the new
+            # database that aren't already in the pre-existing one
+            new_db = new_db[~new_db.id.isin(old_db.id)]
+            final_db = pd.concat([old_db, new_db], ignore_index=True)
+            # Save the updated database
+            final_db.to_json(path)
+            print(len(final_db))
+        except:        
+            old_db = pd.DataFrame(columns=new_db.columns)
+            old_db.to_json(path)
+
+    def get_singles_names(self, database_df):
+        """
+        Return the list of playlist names referring
+        to singles playlists
+        """
+        pattern = constants.patterns.singles_playlists
+        singles_names = []
+        for name in database_df.name:
+            match = re.search(pattern, name)
+            if match:
+                singles_names.append(match.group())
+
+        return singles_names
+
+    def get_database_tracks_df(self, **kwargs):
+        """
+        Return the dataframe of user playlists where each row 
+        is a track, include release date, first artist name, etc.
+
+        If no file found at path, return None
+        """
+        path = kwargs.get('path', constants.user_vars['playlist_df_path'])
+        if os.path.exists(path):        
+            df = pd.read_json(path)
         else:
-            print(dedent("""\
-                   Pass an existing path keyword argument
-                   """))
-        
-    return df
+            print("No playlist dataframe")
+            print(f"Creating a refreshed dataframe created at: {path}")
+            # df = make_playlists_df()
+            # df.to_json(path)
+            df = None
+            
+        return df
 
 def get_playlist(playlist_id='7Gr9kNeQNwapj3KYaAIhCu', **kwargs):
     """
     Return playlist (a dictionary). playlist_id can be looked up by name
-    in in the DataFrame returned by playlist.database()
+    in in the DataFrame returned by playlist.playlist.DataBase().df
 
     This function does instantiate a user spotipy object (utilities.get_user_sp())
     """
@@ -69,7 +127,7 @@ def get_playlist(playlist_id='7Gr9kNeQNwapj3KYaAIhCu', **kwargs):
     except Exception as e:
         playlist = None
         print(f"Couldn't find playlist with id: {playlist_id}\nSpotipy error:\n{e}")
-        print(f'You can look up playlist ids in playlist.database()')
+        print(f'You can look up playlist ids in playlist.DataBase().df')
     
     return playlist
 
@@ -92,8 +150,6 @@ def get_playlist_tracks(playlist_id='7Gr9kNeQNwapj3KYaAIhCu', **kwargs):
     tracks_list = [tracks['items'][i]['track'] for i in range(len(tracks['items']))]
     
     return tracks_list
-
-
 
 def make_playlist_tracks_df(playlist_id='7Gr9kNeQNwapj3KYaAIhCu', allkeys=False, **kwargs):
     # need to add functinality to get song release date and my add date
@@ -125,17 +181,24 @@ def make_playlist_tracks_df(playlist_id='7Gr9kNeQNwapj3KYaAIhCu', allkeys=False,
             track_df = pd.DataFrame(columns_dict, index=[i])
             track_dfs.append(track_df)
 
-    tracks_df = pd.concat(track_dfs)
+    if len(track_dfs) > 0:
+        tracks_df = pd.concat(track_dfs)
+    else:
+        sp = utilities.get_user_sp()
+        current_pl = sp.playlist(playlist_id=playlist_id)
+        name = current_pl['name']
+        print(f'No tracks on playlist: {name}\nid:{playlist_id}')
+        tracks_df = None
     
     return tracks_df
 
 def get_playlists_from_db():
     """
     Return a list of playlist objects returned by sp.playlist(<playlist_id>)
-    for each playlist_id in playlist.database()
+    for each playlist_id in playlist.playlist.DataBase().df
     """
     sp = utilities.get_user_sp()
-    db = database()
+    db = DataBase().df
     playlist_ids = db.id
     playlists = [sp.playlist(plid) for plid in playlist_ids]
     print(f"Found {len(playlists)} playlists")
@@ -164,70 +227,53 @@ def make_playlists_df():
                 # to make_playlist_tracks_df()
                 for col in tracks_df.columns:
                     columns_dict[f'track_{col}'] = tracks_df.loc[:, col]
-                    
-        playlist_df = pd.DataFrame(columns_dict)
-        playlist_dfs.append(playlist_df)
+        
+        if tracks_df.empty == False:            
+            playlist_df = pd.DataFrame(columns_dict, index=range(0, len(tracks_df)))
+            playlist_dfs.append(playlist_df)
+        else:
+            # No tracks found for this playlist
+            pass 
 
-    playlists_df = pd.concat(playlist_dfs)
-    playlists_df.to_csv(constants.user_vars['playlist_df_path'], index=False)
+    playlists_df = pd.concat(playlist_dfs, ignore_index=True)
+    playlists_df.to_json(constants.user_vars['playlist_df_path'])
     
     return playlists_df
 
-def make_playlists_db():
-    
-    sp = utilities.get_user_sp()
-    username = constants.user_vars['username']
-    playlists = sp.user_playlists(username, limit=50)
-    playlist_dfs = []
-
-    keys = ['name',
-            'uri',
-            'id']
-    
-    for i, playlist_dict in enumerate(playlists['items']):
-        columns_dict = {}
-        for key in keys:
-            columns_dict[key] = playlist_dict[key]                    
-        playlist_df = pd.DataFrame(columns_dict, index=[i])
-        playlist_dfs.append(playlist_df)
-
-    playlists_df = pd.concat(playlist_dfs)
-    
-    return playlists_df
-
-def update_database():
+def dataframe(**kwargs):
     """
-    Refresh the playlist database .csv. 
-    Check topspot.constants.user_vars['playlist_db_path'] and make sure
-    there is an existing .csv at that path
+    Return the dataframe of user playlists where each row 
+    is a track, include release date, first artist name, etc.
+
+    If no file found at path, return None
     """
-    path = constants.user_vars['playlist_db_path']
-    new_db = make_playlists_db()
-    old_db = database()
-    # Check if there's a .csv at the path. If not,
-    # just create an empty one with the same cols
-    # as the new database
-    try:   
-        # Get information for playlists in the new
-        # database that aren't already in the pre-existing one
-        new_db = new_db[~new_db.id.isin(old_db.id)]
-        final_db = pd.concat([old_db, new_db], ignore_index=True)
-        # Save the updated database
-        final_db.to_csv(path, index=False)
-    except:        
-        old_db = pd.DataFrame(columns=new_db.columns)
-        old_db.to_csv(path, index=False)
+    path = kwargs.get('path', constants.user_vars['playlist_df_path'])
+    if os.path.exists(path):
+    
+        df = pd.read_json(path)
+    else:
+        print("No playlist dataframe")
+        print(f"Creating a refreshed dataframe created at: {path}")
+        df = make_playlists_df()
+        df.to_json(path)
+        
+    return df
+
+def update_playlists_df():
+
+    df = make_playlists_df()
+    pass
 
 def get_playlist_by_name(playlist_name='2020 June'):
     """
-    Look up playlist_name in playlist.database() to get id.
+    Look up playlist_name in playlist.DataBase().df to get id.
     Get playlist with playlist.get_playlist(id)
     
     get_playlist() returns None if no playlist found
     """
-    db = database()
+    db = playlist.DataBase().df
     if playlist_name not in db.name.values:
-        print(f"'{playlist_name}' not recorded in playlist.database()")
+        print(f"'{playlist_name}' not recorded in playlist.DataBase().df")
         return None
     playlist_id = db.set_index('name').loc[playlist_name, 'id']
     playlist = get_playlist(playlist_id=playlist_id)
@@ -236,8 +282,8 @@ def get_playlist_by_name(playlist_name='2020 June'):
 
 def new_playlist(**kwargs):
     """
-    Create an empty playlist and add it to playlist.database()
-    using playlist.update_database(). If playlist_name is already
+    Create an empty playlist and add it to playlist.DataBase().df
+    using playlist.DataBase().update_database(). If playlist_name is already
     in the database, warn the user, return None and don't make a
     new playlist.
     """
@@ -246,7 +292,7 @@ def new_playlist(**kwargs):
     name = kwargs.get('name', f'Playlist {now.year}{now.month}{now.day}')
     public = kwargs.get('public', False)
     sp = utilities.get_user_sp()
-    db = database()    
+    db = DataBase().df    
     # The playlist will have been create at the top
     # of playlist organization, so update_datebase()
     # will find it and add it to the database
@@ -257,7 +303,7 @@ def new_playlist(**kwargs):
         # user_playlist_create() returns the playlist dict 
         # object
         new_pl = sp.user_playlist_create(username, name, public)
-        update_database()
+        DataBase().update_database()
         return new_pl
 
 def n_tracks(playlist_id, **kwargs):
@@ -272,14 +318,14 @@ def n_tracks(playlist_id, **kwargs):
 def add_track_to_playlist(track, playlist_name, **kwargs):
     """
     Look up the playlist id corresponding to playlist_name
-    in the dataframe returned by database() and add track
+    in the dataframe returned by DataBase().df and add track
     to that playlist.
     
     This function won't add track to playlist if track is
     already on that playlist.
     """
     assert type(track) == dict, "track must be a dictionary"
-    db = database()
+    db = DataBase().df
     sp = kwargs.get('sp', utilities.get_user_sp())
     # If the sp object was passed as a kwarg, we need to make
     # sure it isn't expired
@@ -291,7 +337,7 @@ def add_track_to_playlist(track, playlist_name, **kwargs):
     # Need to update so that if playlist_name not in db.name.values,
     # create a new playlist with that track using playlist.new_playlist()
     # which will add the new playlist's information to playlist.database(). 
-    assert playlist_name in db.name.values, "playlist name not recorded in playlist.database()"
+    assert playlist_name in db.name.values, "playlist name not recorded in playlist.DataBase().df"
     # Check if the track is already on the playlist. If so, don't add it
     # and let the user know
     playlist_id = db.set_index('name').loc[playlist_name, 'id']
@@ -331,7 +377,7 @@ def add_single_to_playlist(track, **kwargs):
         name = f'{name} {suffix}'
 
     # Works if there's an existing singles playlist
-    # for this track in playlist.database()
+    # for this track in playlist.DataBase().df
     try:
         add_track_to_playlist(track, name)
     # If no existing playlist, just create a new monthly
@@ -343,13 +389,13 @@ def add_single_to_playlist(track, **kwargs):
 
 def add_current_track_to_playlist(ask_name=False, **kwargs):
 
-    db = database()
+    db = DataBase().df
     track = playback.get_current_track()
 
     if ask_name:
         name = input("Enter name of target playlist> ")
         while name not in db.name.values:
-            db = database() # get a fresh copy of the db
+            db = DataBase().df # get a fresh copy of the db
             # object in case it got updated in new_playlist()
             # name = input(f"No playlist with name {name}, try again> ")
             nextstep = input(f"getlist or makenew?> ")
@@ -419,4 +465,3 @@ def update_singles_playlists(**kwargs):
 
                 for track in tracks:
                     add_single_to_playlist(track, release_date=rd, suffix='auto')
-                    

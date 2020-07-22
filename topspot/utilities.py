@@ -102,7 +102,7 @@ def get_clipboard_uri(**kwargs):
         track_id = track['id']
         track_uri = track['uri']
         track_name = track['name']
-        print(f'Found track_uri: {track_uri}\nTrack name: {track_name}\nfor query: {query}')
+        print(f'\nFound track_uri: {track_uri}\nTrack name: {track_name}\nfor query: {query}')
     else:
         print(f"Couldn't find a matching track for search:\n{query}")
         track_id = None

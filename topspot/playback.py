@@ -64,7 +64,6 @@ def add_clipboard_to_queue():
     and add the first track result to queue
     """
     sp = get_user_sp()
-    track = get_clipboard_uri()
     clipboard_uri = get_clipboard_uri()
     sp.add_to_queue(clipboard_uri)
     print(f"Added song with uri '{clipboard_uri}' to queue")
