@@ -44,7 +44,7 @@ def get_client_sp(**kwargs):
 
     return sp
 
-def get_clipboard():
+def get_clipboard(clean_clipboard=True):
     """
     Return the contents of the OS clipboard
     using tkinter
@@ -52,6 +52,16 @@ def get_clipboard():
     root = Tk()
     root.withdraw()
     clipboard = root.clipboard_get()
+
+    # Remove irrelevant text from text
+    # so that it returns good results 
+    # in spotify search
+    if clean_clipboard:
+        # Patterns text to drop are in
+        # topspot.constants.patterns.bad_search_text
+        pass
+    else:
+        pass 
     return clipboard
 
 def get_clipboard_track():

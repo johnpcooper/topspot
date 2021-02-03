@@ -64,7 +64,7 @@ class DataBase(object):
         there is an existing .csv at that path
         """
         path = constants.user_vars['playlist_db_path']
-        new_db = make_playlists_db()
+        new_db = self.make_database_df()
         old_db = self.df
         # Check if there's a .json at the path. If not,
         # just create an empty one with the same cols
