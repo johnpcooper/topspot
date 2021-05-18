@@ -101,7 +101,9 @@ def get_clipboard_uri(**kwargs):
     If no results, return None
     """
     sp = get_client_sp()
-    query = get_clipboard()
+    # Remove the hyphen typically between artist and 
+    # song name in headlines
+    query = get_clipboard().replace(' - ', '')
     results = sp.search(q=query, type='track')
     
     items = results['tracks']['items']
