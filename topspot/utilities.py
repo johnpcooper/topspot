@@ -103,7 +103,7 @@ def get_clipboard_uri(**kwargs):
     sp = get_client_sp()
     # Remove the hyphen typically between artist and 
     # song name in headlines
-    query = get_clipboard().replace(' - ', '')
+    query = get_clipboard().replace(' - ', ' ')
     results = sp.search(q=query, type='track')
     
     items = results['tracks']['items']
