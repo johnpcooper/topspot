@@ -72,7 +72,9 @@ def get_clipboard_track():
     If no results, None is returned
     """
     sp = get_user_sp()
-    query = get_clipboard().replace(' - ', ' ')
+    # Also remove the english dash symbol if its
+    # there (need to specify with unicode)
+    query = query.replace(' \u2013 ', ' ')
     results = sp.search(q=query, type='track')
 
     items = results['tracks']['items']
@@ -104,6 +106,9 @@ def get_clipboard_uri(**kwargs):
     # Remove the hyphen typically between artist and 
     # song name in headlines
     query = get_clipboard().replace(' - ', ' ')
+    # Also remove the english dash symbol if its
+    # there (need to specify with unicode)
+    query = query.replace(' \u2013 ', ' ')
     results = sp.search(q=query, type='track')
     
     items = results['tracks']['items']
