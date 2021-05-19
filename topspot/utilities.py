@@ -72,7 +72,7 @@ def get_clipboard_track():
     If no results, None is returned
     """
     sp = get_user_sp()
-    query = get_clipboard()
+    query = get_clipboard().replace(' - ', ' ')
     results = sp.search(q=query, type='track')
 
     items = results['tracks']['items']
