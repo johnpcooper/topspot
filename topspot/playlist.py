@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import calendar
 from textwrap import dedent
 import re
+import difflib
 
 import pandas as pd
 
@@ -259,6 +260,27 @@ def dataframe(**kwargs):
         
     return df
 
+def fuzzy_lookup(playlist_name):
+    """
+    Find name in playlist db most similar to
+    the queried <playlist_name>, set <playlist_name>
+    to that match and return <playlist_name>
+    """
+    db = DataBase().df
+    matches = []
+    matches = difflib.get_close_matches(playlist_name, db.name.values)
+    if len(matches) != 0:
+        playlist_name = matches[0]
+        playlist_id = db.set_index('name').loc[playlist_name, 'id']
+        print(f'Found playlist with similar name: {playlist_name}')
+        print('Perhaps name was updated since instantiation of playlist')
+    else:
+        print(f"'{playlist_name}' not recorded in playlist.DataBase().df")
+        print("No matches found")
+        return None
+
+    return playlist_name 
+
 def update_playlists_df():
 
     df = make_playlists_df()
@@ -271,10 +293,9 @@ def get_playlist_by_name(playlist_name='2020 June'):
     
     get_playlist() returns None if no playlist found
     """
-    db = playlist.DataBase().df
+    db = DataBase().df
     if playlist_name not in db.name.values:
-        print(f"'{playlist_name}' not recorded in playlist.DataBase().df")
-        return None
+        fuzzy_lookup(playlist_name)
     playlist_id = db.set_index('name').loc[playlist_name, 'id']
     playlist = get_playlist(playlist_id=playlist_id)
     
@@ -391,17 +412,26 @@ def add_current_track_to_playlist(ask_name=False, **kwargs):
 
     db = DataBase().df
     track = playback.get_current_track()
-
     if ask_name:
         name = input("Enter name of target playlist> ")
+        if name not in db.name.values:
+            name = fuzzy_lookup(name)
         while name not in db.name.values:
             db = DataBase().df # get a fresh copy of the db
             # object in case it got updated in new_playlist()
             # name = input(f"No playlist with name {name}, try again> ")
             nextstep = input(f"getlist or makenew?> ")
             if nextstep == 'getlist':
-                for plname in db.name.values:
-                    print(plname)
+                names = db.name.values
+                logpath = os.path.join(constants.package_path, 'playlist_db_log.txt') 
+                with open(logpath, 'w+') as file:
+                    file.write('\n'.join(names))
+                    try:
+                        os.system(f'notepad.exe {logpath}')
+                    except:
+                        for n in names:
+                            print(n)
+                        print("Could not launch notepad, probably not a windows system")
                 name = input("Enter name of target playlist> ")
             elif nextstep == 'makenew':
                 new_playlist(name=name)
