@@ -420,18 +420,20 @@ def add_current_track_to_playlist(ask_name=False, **kwargs):
             db = DataBase().df # get a fresh copy of the db
             # object in case it got updated in new_playlist()
             # name = input(f"No playlist with name {name}, try again> ")
+            names = db.name.values
             nextstep = input(f"getlist or makenew?> ")
             if nextstep == 'getlist':
-                names = db.name.values
-                logpath = os.path.join(constants.package_path, 'playlist_db_log.txt') 
-                with open(logpath, 'w+') as file:
-                    file.write('\n'.join(names))
-                    try:
-                        os.system(f'notepad.exe {logpath}')
-                    except:
-                        for n in names:
-                            print(n)
-                        print("Could not launch notepad, probably not a windows system")
+                logdir = os.path.expanduser("~")
+                logpath = os.path.join(logdir, 'playlist_db_log.txt') 
+                file = open(logpath, 'a')
+                print('Found', len(names), 'names in db')
+                file.write('\n'.join(list(names)))
+                try:
+                    os.system(f'notepad.exe {logpath}')
+                except:
+                    for n in names:
+                        print(n)
+                    print("Could not launch notepad, probably not a windows system")
                 name = input("Enter name of target playlist> ")
             elif nextstep == 'makenew':
                 new_playlist(name=name)
